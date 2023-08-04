@@ -63,6 +63,18 @@ public:
     Unit()
     {
     }
+    char getType()
+    {
+        return this->type;
+    }
+    char getProduction()
+    {
+        return this->production;
+    }
+    int getId()
+    {
+        return this->id;
+    }
     std::array<int, 2> getCoords()
     {
         std::array<int, 2> coord;

@@ -6,6 +6,7 @@
 #include <utility>
 #include "unit.cpp"
 typedef std::vector<std::vector<char>> vectorMap;
+typedef std::vector<std::array<int, 2>> path;
 struct IntArrayPair
 {
     int first;
@@ -29,6 +30,12 @@ enum prices
     Catapult = 800,
     Worker = 100
 };
+
+struct Mine
+{
+    std::array<int, 2> coordinates;
+};
+
 class Commander
 {
 private:
@@ -39,6 +46,8 @@ private:
     std::vector<Unit> workers;
 
     std::vector<Unit> enemies;
+
+    std::vector<Mine> mines;
 
     int gold;
 
@@ -57,7 +66,10 @@ public:
     {
         this->base = base;
     }
-
+    void setMines(std::vector<Mine> mines)
+    {
+        this->mines = mines;
+    }
     void addCombatUnit(Unit combatUnit)
     {
         this->combatUnits.push_back(combatUnit);
@@ -89,23 +101,56 @@ public:
     }
     std::string orderBase()
     {
+        std::string returnString = std::to_string(this->base.getId()) + " B";
+
+        if (this->base.getProduction() != '0')
+        {
+            return "";
+        }
+        if ((this->enemies.size() >= this->combatUnits.size() || this->mines.size() == 0) && this->gold >= Swordsman)
+        {
+            // we will spam swordsman - good value (xd)
+
+            return returnString + " S\n";
+        }
+        else if (this->mines.size() != 0 && this->enemies.size() < this->combatUnits.size() && this->gold >= 100)
+        {
+
+            return returnString + " W\n";
+        }
         return "";
     }
-    std::string orderCombatUnits()
+    std::string orderCombatUnits(vectorMap map)
     {
         return "";
     }
-    std::string orderWorkers()
+    std::string orderWorkers(vectorMap map)
     {
+        std::string returnString;
+        for (Unit worker : this->workers)
+        {
+            bool insideMine = false;
+            for (Mine mine : this->mines)
+            {
+                if (worker.getCoords() == mine.coordinates)
+                {
+                    insideMine = true;
+                }
+            }
+            if (!insideMine)
+            {
+                path minePath = calculatePath(map, worker);
+            }
+        }
         return "";
     }
     // Shortest path to another point calculated by implementing djikstra algorithm
-    std::vector<std::array<int, 2>> calculatePath(vectorMap map, Unit unit)
+    path calculatePath(vectorMap map, Unit unit)
     {
         // std::array<int, 2> coords = unit.getCoords();
         std::array<int, 2> coords = unit.getCoords();
         std::array<int, 2> enemyCoords;
-        std::vector<std::array<int, 2>> returnPath;
+        path returnPath;
         std::multiset<IntArrayPair> unvisited;
         std::multiset<IntArrayPair> visited;
         std::vector<std::vector<bool>> unvisitedMatrix;
@@ -163,7 +208,7 @@ public:
 
                 char currentNeighbour = map[neighbour[1]][neighbour[0]];
 
-                if (currentNeighbour == 'X')
+                if ((currentNeighbour == 'X' && unit.getType() != 'W') || (currentNeighbour == '6' && unit.getType() == 'W'))
                 {
                     if (firstElement.second[0] - neighbour[0] != 0)
                     {
@@ -211,9 +256,6 @@ public:
 
             visited.insert(*unvisited.begin());
             unvisited.erase(unvisited.begin());
-
-            std::cout << visited.size() << " " << unvisited.size() << std::endl;
-            // found = true;
         }
 
         bool formingResult = true;
@@ -239,15 +281,18 @@ public:
             default:
                 returnPath.push_back({currentX, currentY});
                 formingResult = false;
-                ;
             }
         }
-        // std::cout << firstElement.first;
+
         return returnPath;
     }
     void giveOrders(std::string orderFileName, vectorMap map)
     {
-        calculatePath(map, this->base);
+        std::string commandString = "";
+        commandString += orderBase();
+        commandString += orderWorkers(map);
+        commandString += orderCombatUnits(map);
+        std::cout << commandString;
     }
 
     int distance(std::array<int, 2> p1, std::array<int, 2> p2)

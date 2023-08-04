@@ -15,6 +15,7 @@ void createCommands(vectorMap mapCoord, std::string commandFileName, std::string
 void markEnemies(vectorMap &mapCoord, Commander commander);
 void showMap(vectorMap mapCoord);
 void createCommander(Commander &commander, std::string stateFileName);
+void checkForGoldmines(vectorMap map, Commander commander);
 int main()
 {
 
@@ -33,14 +34,14 @@ int main()
     createCommander(commander, state);
     // commander.showcase();
     markEnemies(mapCoord, commander);
-
+    checkForGoldmines(mapCoord, commander);
     commander.giveOrders(testCommands, mapCoord);
-    showMap(mapCoord);
-    std::cout << "koniec";
+    // showMap(mapCoord);
+
     //  timer for later
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-    // std::cout << ((double)duration.count() / 1000.00);
+    std::cout << ((double)duration.count() / 1000.00) << " seconds";
     return 0;
 }
 
@@ -120,7 +121,22 @@ void createCommander(Commander &commander, std::string stateFileName)
         }
     }
 }
-
+void checkForGoldmines(vectorMap map, Commander commander)
+{
+    std::vector<Mine> mines;
+    for (int i = 0; i < map.size(); i++)
+    {
+        for (int j = 0; j < map[0].size(); j++)
+        {
+            if (map[i][j] == '6')
+            {
+                Mine currMine = {j, i};
+                mines.push_back(currMine);
+            }
+        }
+    }
+    commander.setMines(mines);
+}
 void markEnemies(vectorMap &mapCoord, Commander commander)
 {
     for (Unit unit : commander.getEnemies())
