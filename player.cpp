@@ -33,8 +33,11 @@ int main()
     createCommander(commander, state);
     // commander.showcase();
     markEnemies(mapCoord, commander);
+
+    commander.giveOrders(testCommands, mapCoord);
     showMap(mapCoord);
-    // timer for later
+    std::cout << "koniec";
+    //  timer for later
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
     // std::cout << ((double)duration.count() / 1000.00);
