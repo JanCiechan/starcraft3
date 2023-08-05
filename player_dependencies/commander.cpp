@@ -49,10 +49,10 @@ private:
 
     std::vector<Mine> mines;
 
-    int gold;
+    long gold;
 
 public:
-    Commander(Unit base, std::vector<Unit> combatUnits, std::vector<Unit> workers, std::vector<Unit> enemies, int gold)
+    Commander(Unit base, std::vector<Unit> combatUnits, std::vector<Unit> workers, std::vector<Unit> enemies, long gold)
     {
         this->base = base;
         this->combatUnits = combatUnits;
@@ -85,7 +85,7 @@ public:
         this->workers.push_back(worker);
     }
 
-    void setGold(int gold)
+    void setGold(long gold)
     {
         this->gold = gold;
     }
@@ -120,31 +120,106 @@ public:
         }
         return "";
     }
+    void commanderSetup(vectorMap &map)
+    {
+        checkForGoldmines(map);
+        markEnemies(map);
+    }
+    void markEnemies(vectorMap &mapCoord)
+    {
+        for (Unit unit : this->enemies)
+        {
+            std::array<int, 2> unitCoords = unit.getCoords();
+            mapCoord[unitCoords[1]][unitCoords[0]] = 'X';
+        }
+    }
+    void checkForGoldmines(vectorMap map)
+    {
+        std::vector<Mine> mines;
+        for (int i = 0; i < map.size(); i++)
+        {
+            for (int j = 0; j < map[0].size(); j++)
+            {
+                if (map[i][j] == '6')
+                {
+                    Mine currMine = {j, i};
+                    mines.push_back(currMine);
+                }
+            }
+        }
+        this->mines = mines;
+    }
     std::string orderCombatUnits(vectorMap map)
     {
-        return "";
+        std::string returnString;
+        for (Unit braveWarrior : this->combatUnits)
+        {
+            path enemyPath = calculatePath(map, braveWarrior);
+            int remainingMoves = braveWarrior.getSpeed();
+            std::array<int, 2> currentPos = enemyPath[enemyPath.size() - 1];
+            int requiredMoves = 0;
+            int correctMove = 0;
+            if (enemyPath.size() > 1 + braveWarrior.getRange())
+            {
+                std::string currCommand = "";
+
+                requiredMoves = enemyPath.size() - braveWarrior.getRange() - 1;
+                correctMove = enemyPath.size() - (requiredMoves > remainingMoves ? remainingMoves : requiredMoves) - 1;
+                currentPos = enemyPath[correctMove];
+                currCommand += std::to_string(braveWarrior.getId()) + " M " + std::to_string(currentPos[0]) + " " + std::to_string(currentPos[1]) + "\n";
+                remainingMoves -= requiredMoves;
+
+                returnString += currCommand;
+
+                // we must get to enemy - kill all!
+                // the enemy path array has coordinates of every step of the path - basically we need to choose correct coordinates from the available list
+            }
+            if ((distance(currentPos, enemyPath[0]) <= braveWarrior.getRange() || enemyPath.size() == 0) && remainingMoves > 0)
+            {
+                // we are close enough to enemy to attack him - generate attack command
+                std::string currCommand = "";
+                currCommand += std::to_string(braveWarrior.getId()) + " A " + std::to_string(getAttackedEnemyId(enemyPath[0])) + "\n";
+
+                returnString += currCommand;
+            }
+        }
+        return returnString;
     }
     std::string orderWorkers(vectorMap map)
     {
-        std::string returnString;
+        std::string returnString = "";
+
         for (Unit worker : this->workers)
         {
+
             bool insideMine = false;
             for (Mine mine : this->mines)
             {
+
                 if (worker.getCoords() == mine.coordinates)
                 {
                     insideMine = true;
                 }
-            }
-            if (!insideMine)
-            {
-                path minePath = calculatePath(map, worker);
+
+                if (!insideMine)
+                {
+
+                    path minePath = calculatePath(map, worker);
+                    std::cout << minePath.size();
+                    if (minePath.size() == 0)
+                    {
+                        continue;
+                    }
+                    // miner must go to the first field of the path
+                    std::array<int, 2> moveCoords;
+                    moveCoords = (worker.getRange() >= minePath.size() - 1 ? minePath[0] : minePath[minePath.size() - worker.getRange() - 2]);
+                    returnString += std::to_string(worker.getId()) + " M " + std::to_string(moveCoords[0]) + " " + std::to_string(moveCoords[1]) + "\n";
+                }
             }
         }
-        return "";
+        return returnString;
     }
-    // Shortest path to another point calculated by implementing djikstra algorithm
+    // Shortest path to another point calculated by implementing djikstra algorithm - first element are enemy coords, last is our coords
     path calculatePath(vectorMap map, Unit unit)
     {
         // std::array<int, 2> coords = unit.getCoords();
@@ -185,11 +260,14 @@ public:
             }
         }
         bool found = false;
-        while (!found)
+        while (!found && !unvisited.empty())
         {
 
             const IntArrayPair &firstElement = *unvisited.begin();
-
+            if (firstElement.first == INT32_MAX)
+            {
+                break;
+            }
             std::vector<std::array<int, 2>> neighbours;
             std::array<int, 2> currCorr = firstElement.second;
             (currCorr[0] > 0 ? neighbours.push_back({currCorr[0] - 1, currCorr[1]}) : "");
@@ -257,46 +335,73 @@ public:
             visited.insert(*unvisited.begin());
             unvisited.erase(unvisited.begin());
         }
-
         bool formingResult = true;
-        returnPath.push_back(enemyCoords);
-        while (formingResult)
+        if (found)
         {
-            int currentX = returnPath[returnPath.size() - 1][0];
-            int currentY = returnPath[returnPath.size() - 1][1];
-            switch (previous[currentY][currentX].c_str()[0])
+
+            returnPath.push_back(enemyCoords);
+            while (formingResult)
             {
-            case ('U'):
-                returnPath.push_back({currentX, currentY - 1});
-                break;
-            case ('D'):
-                returnPath.push_back({currentX, currentY + 1});
-                break;
-            case ('L'):
-                returnPath.push_back({currentX - 1, currentY});
-                break;
-            case ('R'):
-                returnPath.push_back({currentX + 1, currentY});
-                break;
-            default:
-                returnPath.push_back({currentX, currentY});
-                formingResult = false;
+                int currentX = returnPath[returnPath.size() - 1][0];
+                int currentY = returnPath[returnPath.size() - 1][1];
+                switch (previous[currentY][currentX].c_str()[0])
+                {
+                case ('U'):
+                    returnPath.push_back({currentX, currentY - 1});
+                    break;
+                case ('D'):
+                    returnPath.push_back({currentX, currentY + 1});
+                    break;
+                case ('L'):
+                    returnPath.push_back({currentX - 1, currentY});
+                    break;
+                case ('R'):
+                    returnPath.push_back({currentX + 1, currentY});
+                    break;
+                default:
+                    // returnPath.push_back({currentX, currentY});
+                    formingResult = false;
+                }
             }
         }
-
         return returnPath;
     }
     void giveOrders(std::string orderFileName, vectorMap map)
     {
         std::string commandString = "";
         commandString += orderBase();
-        commandString += orderWorkers(map);
+
         commandString += orderCombatUnits(map);
-        std::cout << commandString;
+        commandString += orderWorkers(map);
+        std::ofstream ofs(orderFileName, std::ofstream::trunc);
+        ofs << commandString;
+        ofs.close();
     }
 
     int distance(std::array<int, 2> p1, std::array<int, 2> p2)
     {
         return abs(p1[1] - p2[1]) + abs(p1[0] - p2[0]);
+    }
+    int getAttackedEnemyId(std::array<int, 2> enemycoord)
+    {
+        for (Unit enemy : this->enemies)
+        {
+            if (enemy.getCoords() == enemycoord)
+            {
+                return enemy.getId();
+            }
+        }
+        return -1;
+    }
+    void testPath(vectorMap map, Unit unit)
+    {
+        path tescik = calculatePath(map, unit);
+
+        std::cout << "Here are the steps: " << std::endl;
+        for (std::array<int, 2> coord : tescik)
+        {
+            std::cout << coord[0] << " " << coord[1] << std::endl;
+        }
+        std::cout << std::endl;
     }
 };

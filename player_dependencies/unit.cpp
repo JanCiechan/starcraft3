@@ -63,6 +63,14 @@ public:
     Unit()
     {
     }
+    int getRange()
+    {
+        return this->range;
+    }
+    int getSpeed()
+    {
+        return this->speed;
+    }
     char getType()
     {
         return this->type;
@@ -77,6 +85,7 @@ public:
     }
     std::array<int, 2> getCoords()
     {
+
         std::array<int, 2> coord;
         coord[0] = this->x;
         coord[1] = this->y;

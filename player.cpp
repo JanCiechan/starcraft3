@@ -10,12 +10,9 @@
 typedef std::vector<std::vector<char>> vectorMap;
 
 vectorMap loadmap(std::string filename);
-void clearCommands(std::string fileName);
-void createCommands(vectorMap mapCoord, std::string commandFileName, std::string stateFileName);
-void markEnemies(vectorMap &mapCoord, Commander commander);
 void showMap(vectorMap mapCoord);
 void createCommander(Commander &commander, std::string stateFileName);
-void checkForGoldmines(vectorMap map, Commander commander);
+
 int main()
 {
 
@@ -28,17 +25,12 @@ int main()
 
     vectorMap mapCoord = loadmap(mapName);
 
-    // we write new commands to clear file, so we clear it
-    clearCommands(testCommands);
     Commander commander;
     createCommander(commander, state);
-    // commander.showcase();
-    markEnemies(mapCoord, commander);
-    checkForGoldmines(mapCoord, commander);
-    commander.giveOrders(testCommands, mapCoord);
-    // showMap(mapCoord);
 
-    //  timer for later
+    commander.commanderSetup(mapCoord);
+    commander.giveOrders(testCommands, mapCoord);
+
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
     std::cout << ((double)duration.count() / 1000.00) << " seconds";
@@ -69,18 +61,12 @@ vectorMap loadmap(std::string filename)
     return mapa;
 }
 
-void clearCommands(std::string fileName)
-{
-    std::ofstream ofs(fileName, std::ofstream::trunc);
-
-    ofs.close();
-}
 void createCommander(Commander &commander, std::string stateFileName)
 {
     std::string line;
     std::ifstream infile(stateFileName);
     std::getline(infile, line);
-    commander.setGold(stoi(line));
+    commander.setGold(stoul(line));
 
     while (std::getline(infile, line))
     {
@@ -121,30 +107,7 @@ void createCommander(Commander &commander, std::string stateFileName)
         }
     }
 }
-void checkForGoldmines(vectorMap map, Commander commander)
-{
-    std::vector<Mine> mines;
-    for (int i = 0; i < map.size(); i++)
-    {
-        for (int j = 0; j < map[0].size(); j++)
-        {
-            if (map[i][j] == '6')
-            {
-                Mine currMine = {j, i};
-                mines.push_back(currMine);
-            }
-        }
-    }
-    commander.setMines(mines);
-}
-void markEnemies(vectorMap &mapCoord, Commander commander)
-{
-    for (Unit unit : commander.getEnemies())
-    {
-        std::array<int, 2> unitCoords = unit.getCoords();
-        mapCoord[unitCoords[1]][unitCoords[0]] = 'X';
-    }
-}
+
 void showMap(vectorMap mapCoord)
 {
     for (std::vector<char> row : mapCoord)
@@ -155,7 +118,4 @@ void showMap(vectorMap mapCoord)
         }
         std::cout << std::endl;
     }
-}
-void createCommands(vectorMap mapCoord, std::string commandFileName, std::string stateFileName)
-{
 }
