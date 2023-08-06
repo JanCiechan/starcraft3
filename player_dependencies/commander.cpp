@@ -5,8 +5,20 @@
 #include <set>
 #include <utility>
 #include "unit.cpp"
+/**
+ * 2 dimensional vector of chars representing fields on the battlefield
+ */
 typedef std::vector<std::vector<char>> vectorMap;
+/**
+ * vector containing arrays of coordinates x,y describing path between two points
+ */
 typedef std::vector<std::array<int, 2>> path;
+/**
+ * Custom pair implementation specifically for use in multiset while implementing Dijkstra algorithm for finding shortest path in a graph.
+ * first element is supposed to represent distance from the beginning of traversed graph to our vertex
+ * second element is used as identification of traversed vertex - its coordinates
+ *
+ */
 struct IntArrayPair
 {
     int first;
@@ -35,7 +47,10 @@ struct Mine
 {
     std::array<int, 2> coordinates;
 };
-
+/**
+ *Class implementing basic logic for player for StarCraft3 game that involves producing Swordman unit whenever possible.
+ *
+ */
 class Commander
 {
 private:
@@ -90,50 +105,60 @@ public:
         this->gold = gold;
     }
 
-    void showcase()
-    {
-        std::array<int, 2> coord = this->base.getCoords();
-        std::cout << "Base is at: " + std::to_string(coord[0]) + " X and " + std::to_string(coord[1]) + " Y" << std::endl;
-    }
-    std::vector<Unit> getEnemies()
-    {
-        return this->enemies;
-    }
-    std::string orderBase()
+    /**
+     * Method used to generate string containing commands for base.
+     * This particular implementation focuses on spamming Swordman unit as it has high cost to strenght ratio.
+     *
+     * @param map map of the battlefield used for checking accessibility to Mines - no need to product worker if we cannot access one
+     * @return returns command string with base order or empty string if base is already producing something or cannot afford a unit.
+     */
+    std::string orderBase(vectorMap map)
     {
         std::string returnString = std::to_string(this->base.getId()) + " B";
-
+        path mineAccessibility = calculatePath(map, this->base);
         if (this->base.getProduction() != '0')
         {
             return "";
         }
-        if ((this->enemies.size() >= this->combatUnits.size() || this->mines.size() == 0) && this->gold >= Swordsman)
+        if ((this->enemies.size() >= this->combatUnits.size() || this->mines.size() == 0 || this->gold > 400 || mineAccessibility.size() == 0) && this->gold >= Swordsman)
         {
-            // we will spam swordsman - good value (xd)
+            // we will spam swordsman - good value
 
             return returnString + " S\n";
         }
-        else if (this->mines.size() != 0 && this->enemies.size() < this->combatUnits.size() && this->gold >= 100)
+        else if (this->mines.size() != 0 && this->enemies.size() < this->combatUnits.size() && this->gold >= Worker)
         {
 
             return returnString + " W\n";
         }
         return "";
     }
+    /**
+     * Method initializing our commander
+     * @param map map of the battlefield
+     */
     void commanderSetup(vectorMap &map)
     {
-        checkForGoldmines(map);
+        setGoldmines(map);
         markEnemies(map);
     }
-    void markEnemies(vectorMap &mapCoord)
+    /**
+     * Method used to mark enemies as 'X' on map of the battlefield - our tactic will focus on attacking closest enemy while producing high value units
+     * @param map map of the battlefield
+     */
+    void markEnemies(vectorMap &map)
     {
         for (Unit unit : this->enemies)
         {
             std::array<int, 2> unitCoords = unit.getCoords();
-            mapCoord[unitCoords[1]][unitCoords[0]] = 'X';
+            map[unitCoords[1]][unitCoords[0]] = 'X';
         }
     }
-    void checkForGoldmines(vectorMap map)
+    /**
+     * Method checking for presence of goldmines on the battlefield - we need to check if we want to bother with producing workers
+     * @param map map of the battlefield
+     */
+    void setGoldmines(vectorMap map)
     {
         std::vector<Mine> mines;
         for (int i = 0; i < map.size(); i++)
@@ -149,6 +174,11 @@ public:
         }
         this->mines = mines;
     }
+    /**
+     * Method used for creating orders for all of our combat units - that is attack closest enemy to them
+     * @param map map of the battlefield
+     * @return returns string containing orders for all of our combat units
+     */
     std::string orderCombatUnits(vectorMap map)
     {
         std::string returnString;
@@ -159,6 +189,7 @@ public:
             std::array<int, 2> currentPos = enemyPath[enemyPath.size() - 1];
             int requiredMoves = 0;
             int correctMove = 0;
+            // check if enemy is not in range for our attack and we need to move closer
             if (enemyPath.size() > 1 + braveWarrior.getRange())
             {
                 std::string currCommand = "";
@@ -170,13 +201,10 @@ public:
                 remainingMoves -= requiredMoves;
 
                 returnString += currCommand;
-
-                // we must get to enemy - kill all!
-                // the enemy path array has coordinates of every step of the path - basically we need to choose correct coordinates from the available list
             }
+            // check if we are close enough to enemy to attack him and have enough move points (more than 0)
             if ((distance(currentPos, enemyPath[0]) <= braveWarrior.getRange() || enemyPath.size() == 0) && remainingMoves > 0)
             {
-                // we are close enough to enemy to attack him - generate attack command
                 std::string currCommand = "";
                 currCommand += std::to_string(braveWarrior.getId()) + " A " + std::to_string(getAttackedEnemyId(enemyPath[0])) + "\n";
 
@@ -185,13 +213,17 @@ public:
         }
         return returnString;
     }
+    /**
+     * Method used for generating workers orders
+     * @param map map of the battlefield
+     * @return returns empty sting if workers are already in the mine or have no path leading to one, or order to move possibly close to the mine
+     */
     std::string orderWorkers(vectorMap map)
     {
         std::string returnString = "";
 
         for (Unit worker : this->workers)
         {
-
             bool insideMine = false;
             for (Mine mine : this->mines)
             {
@@ -200,26 +232,30 @@ public:
                 {
                     insideMine = true;
                 }
+            }
+            if (!insideMine)
+            {
 
-                if (!insideMine)
+                path minePath = calculatePath(map, worker);
+                // no path between current miner and a mine - we continue to check the next mine
+                if (minePath.size() == 0)
                 {
-
-                    path minePath = calculatePath(map, worker);
-                    std::cout << minePath.size();
-                    if (minePath.size() == 0)
-                    {
-                        continue;
-                    }
-                    // miner must go to the first field of the path
-                    std::array<int, 2> moveCoords;
-                    moveCoords = (worker.getRange() >= minePath.size() - 1 ? minePath[0] : minePath[minePath.size() - worker.getRange() - 2]);
-                    returnString += std::to_string(worker.getId()) + " M " + std::to_string(moveCoords[0]) + " " + std::to_string(moveCoords[1]) + "\n";
+                    continue;
                 }
+                std::array<int, 2> moveCoords;
+                moveCoords = (worker.getRange() >= minePath.size() - 1 ? minePath[0] : minePath[minePath.size() - worker.getRange() - 2]);
+                returnString += std::to_string(worker.getId()) + " M " + std::to_string(moveCoords[0]) + " " + std::to_string(moveCoords[1]) + "\n";
             }
         }
         return returnString;
     }
-    // Shortest path to another point calculated by implementing djikstra algorithm - first element are enemy coords, last is our coords
+    /**
+     * Method generating shortest path to another point calculated by implementing djikstra algorithm - first element are enemy coordinates, last are coordinates of given unit.
+     * Method treats our battlefield as unweighted graph - due to that we cannot jump over obstacles and only move over road fields ('0').
+     * @param map map of the battlefield
+     * @param unit unit that is looking for its target - for base ('B') and workers ('W') we check for access to mines, for combat units we check for closest enemy
+     * @return returns coordinates for every step that needs to be taken in order to get to target
+     */
     path calculatePath(vectorMap map, Unit unit)
     {
         // std::array<int, 2> coords = unit.getCoords();
@@ -227,9 +263,8 @@ public:
         std::array<int, 2> enemyCoords;
         path returnPath;
         std::multiset<IntArrayPair> unvisited;
-        std::multiset<IntArrayPair> visited;
-        std::vector<std::vector<bool>> unvisitedMatrix;
-        std::vector<std::vector<std::string>> previous;
+        std::vector<std::vector<bool>> unvisitedMatrix; // we will be checking if we already visited neighbouring vertices - requires more memory but should be faster than when traversing a set
+        std::vector<std::vector<std::string>> previous; // we will traverse this matrix based on characters to generate shortest path
         int maxY = map.size() - 1;
         int maxX = map[0].size() - 1;
         for (int i = 0; i < map.size(); i++)
@@ -241,22 +276,18 @@ public:
             for (int j = 0; j < map[0].size(); j++)
             {
                 std::array<int, 2> unvCoord = {j, i};
-                IntArrayPair p1;
+                IntArrayPair vertex;
                 if (unvCoord[0] == coords[0] && unvCoord[1] == coords[1])
                 {
                     // We set starting point distance to 0 - we start here
-                    p1 = {0, coords};
+                    vertex = {0, coords};
                 }
-                else if (map[unvCoord[1]][unvCoord[0]] == '9')
-                {
-                    // we dont want to add ground to the unvisited array
-                }
-                else
+                else if (map[unvCoord[1]][unvCoord[0]] != '9') // we dont want to add ground to the unvisited array - we cant visit ground
                 {
                     // distance to every other vertex apart from starting one is possibly large
-                    p1 = {INT32_MAX, unvCoord};
+                    vertex = {INT32_MAX, unvCoord};
                 }
-                unvisited.insert(p1);
+                unvisited.insert(vertex);
             }
         }
         bool found = false;
@@ -264,6 +295,7 @@ public:
         {
 
             const IntArrayPair &firstElement = *unvisited.begin();
+            // there is no path from starting point to the vertices remaining in the unvisited array - no need to continue the algorithm
             if (firstElement.first == INT32_MAX)
             {
                 break;
@@ -286,7 +318,7 @@ public:
 
                 char currentNeighbour = map[neighbour[1]][neighbour[0]];
 
-                if ((currentNeighbour == 'X' && unit.getType() != 'W') || (currentNeighbour == '6' && unit.getType() == 'W'))
+                if ((currentNeighbour == 'X' && unit.getType() != 'W') || (currentNeighbour == '6' && (unit.getType() == 'B' || unit.getType() == 'W')))
                 {
                     if (firstElement.second[0] - neighbour[0] != 0)
                     {
@@ -311,28 +343,27 @@ public:
                         const IntArrayPair &secondElement = *foundElement;
                         if (secondElement.first > firstElement.first)
                         {
-
+                            // we cannot change the key in our pair but we need to update distance - so we erase element and reinsert it later
                             unvisited.erase(foundElement);
-                            IntArrayPair p1 = {firstElement.first + 1, secondElement.second};
-                            // Up,Down,Left,Right
+                            IntArrayPair currentVertex = {firstElement.first + 1, secondElement.second};
+                            // we check both axes to see what was the previous element when getting to current vertex - and set correct direction to our previous matrix so we can traverse path later
                             if (firstElement.second[0] - secondElement.second[0] != 0)
                             {
-                                previous.at(secondElement.second[1]).at(secondElement.second[0]) = (firstElement.second[0] - secondElement.second[0] == 1 ? "R" : "L");
+                                previous.at(secondElement.second[1]).at(secondElement.second[0]) = (firstElement.second[0] - secondElement.second[0] == 1 ? "R" : "L"); // right and left
                             }
                             else if (firstElement.second[1] - secondElement.second[1] != 0)
                             {
-                                previous[secondElement.second[1]][secondElement.second[0]] = (firstElement.second[1] - secondElement.second[1] == 1 ? "D" : "U");
+                                previous[secondElement.second[1]][secondElement.second[0]] = (firstElement.second[1] - secondElement.second[1] == 1 ? "D" : "U"); // down and up
                             }
 
-                            unvisited.insert(p1);
+                            unvisited.insert(currentVertex);
                         }
                     }
                 }
 
                 unvisitedMatrix[neighbour[1]][neighbour[0]] = true;
             }
-
-            visited.insert(*unvisited.begin());
+            // remove head of multiset - we already visited all its neighbours
             unvisited.erase(unvisited.begin());
         }
         bool formingResult = true;
@@ -342,6 +373,7 @@ public:
             returnPath.push_back(enemyCoords);
             while (formingResult)
             {
+                // we check coordinates of current points to check what will be the next one based on previous array
                 int currentX = returnPath[returnPath.size() - 1][0];
                 int currentY = returnPath[returnPath.size() - 1][1];
                 switch (previous[currentY][currentX].c_str()[0])
@@ -359,17 +391,21 @@ public:
                     returnPath.push_back({currentX + 1, currentY});
                     break;
                 default:
-                    // returnPath.push_back({currentX, currentY});
                     formingResult = false;
                 }
             }
         }
         return returnPath;
     }
+    /**
+     * Method responsible for invoking methods creating strings containing orders for all units (and base) and saving them to a file
+     * @param orderFileName name of the file we want to save orders to
+     * @param map map of the battlefield
+     */
     void giveOrders(std::string orderFileName, vectorMap map)
     {
         std::string commandString = "";
-        commandString += orderBase();
+        commandString += orderBase(map);
 
         commandString += orderCombatUnits(map);
         commandString += orderWorkers(map);
@@ -377,23 +413,38 @@ public:
         ofs << commandString;
         ofs.close();
     }
-
+    /**
+     * Method calculating distance between two arrays of coordinates according to the game rules
+     * @param p1 first array of coordinates
+     * @param p2 second array of coordinates
+     * @return returns int being distance between parameters
+     */
     int distance(std::array<int, 2> p1, std::array<int, 2> p2)
     {
         return abs(p1[1] - p2[1]) + abs(p1[0] - p2[0]);
     }
-    int getAttackedEnemyId(std::array<int, 2> enemycoord)
+    /**
+     * Method returning Id of enemy that we want to attack based on his coordinates
+     * @param enemyCoord enemy coordinates
+     * @return returns enemy id or -1 if there is no such enemy
+     */
+    int getAttackedEnemyId(std::array<int, 2> enemyCoord)
     {
         for (Unit enemy : this->enemies)
         {
-            if (enemy.getCoords() == enemycoord)
+            if (enemy.getCoords() == enemyCoord)
             {
                 return enemy.getId();
             }
         }
         return -1;
     }
-    void testPath(vectorMap map, Unit unit)
+    /**
+     * Method displaying path that unit needs to take to access its target
+     * @param map map of the battlefield
+     * @param unit unit that need its target
+     */
+    void displayPath(vectorMap map, Unit unit)
     {
         path tescik = calculatePath(map, unit);
 

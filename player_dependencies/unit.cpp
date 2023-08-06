@@ -1,5 +1,9 @@
 #include <iostream>
 #include <array>
+
+/**
+ * Class representing units used in StarCraft3
+ */
 class Unit
 {
 private:

@@ -70,28 +70,28 @@ void createCommander(Commander &commander, std::string stateFileName)
 
     while (std::getline(infile, line))
     {
-        std::string currentStatistic;
         std::istringstream iss(line);
         std::string s;
-        std::vector<std::string> moves;
+        std::vector<std::string> currentUnit;
+        // we need to iterate over line by using spaces as some data might be longer than one character
         while (getline(iss, s, ' '))
         {
-            moves.push_back(s);
+            currentUnit.push_back(s);
         }
 
-        if (moves.size() == 6)
+        if (currentUnit.size() == 6) // this means current unit is not a base - we dont have/need production data so we place -1 there
         {
-            moves.push_back("-1");
+            currentUnit.push_back("-1");
         }
-        Unit unit = Unit(moves[1].c_str()[0], stoi(moves[2]), stoi(moves[3]), stoi(moves[4]), stoi(moves[5]), moves[6].c_str()[0]);
-
-        switch (moves[0].c_str()[0]) // Unit(char type, int id, int x, int y, int health, char production)
+        Unit unit = Unit(currentUnit[1].c_str()[0], stoi(currentUnit[2]), stoi(currentUnit[3]), stoi(currentUnit[4]), stoi(currentUnit[5]), currentUnit[6].c_str()[0]);
+        // where to insert current unit - either as enemy or as some kind of player unit
+        switch (currentUnit[0].c_str()[0])
         {
         case 'E':
             commander.addEnemy(unit);
             break;
         case 'P':
-            switch (moves[1].c_str()[0])
+            switch (currentUnit[1].c_str()[0])
             {
             case 'B':
                 commander.setBase(unit);
