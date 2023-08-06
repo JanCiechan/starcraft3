@@ -4,6 +4,7 @@
 #include <string>
 #include <set>
 #include <utility>
+#include <algorithm>
 #include "unit.cpp"
 /**
  * 2 dimensional vector of chars representing fields on the battlefield
@@ -302,10 +303,10 @@ public:
             }
             std::vector<std::array<int, 2>> neighbours;
             std::array<int, 2> currCorr = firstElement.second;
-            (currCorr[0] > 0 ? neighbours.push_back({currCorr[0] - 1, currCorr[1]}) : "");
-            (currCorr[0] < maxX ? neighbours.push_back({currCorr[0] + 1, currCorr[1]}) : "");
-            (currCorr[1] > 0 ? neighbours.push_back({currCorr[0], currCorr[1] - 1}) : "");
-            (currCorr[1] < maxY ? neighbours.push_back({currCorr[0], currCorr[1] + 1}) : "");
+            if(currCorr[0] > 0) neighbours.push_back({currCorr[0] - 1, currCorr[1]});
+            if(currCorr[0] < maxX)  neighbours.push_back({currCorr[0] + 1, currCorr[1]});
+            if(currCorr[1] > 0)  neighbours.push_back({currCorr[0], currCorr[1] - 1});
+            if(currCorr[1] < maxY)  neighbours.push_back({currCorr[0], currCorr[1] + 1});
 
             for (std::array<int, 2> neighbour : neighbours)
             {

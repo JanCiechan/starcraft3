@@ -5,6 +5,7 @@
 #include <chrono>
 #include <thread>
 #include <array>
+#include <cstdlib>
 #include "./player_dependencies/commander.cpp"
 #include <sstream>
 typedef std::vector<std::vector<char>> vectorMap;
@@ -13,15 +14,22 @@ vectorMap loadmap(std::string filename);
 void showMap(vectorMap mapCoord);
 void createCommander(Commander &commander, std::string stateFileName);
 
-int main()
+int main(int argc, char *argv[])
 {
 
     auto start = std::chrono::high_resolution_clock::now();
-    std::string mapName = "mapa.txt";
-    std::string state = "status.txt";
-    std::string commands = "rozkazy.txt";
-    std::string testCommands = "test.txt";
-    int timelimit = 5;
+    std::string mapName= argv[1];
+    std::string state = argv[2];
+    std::string commands = argv[3];
+    int timelimit;
+    if(argc==5) {
+        timelimit = atoi(argv[4]);
+        std::cout<<timelimit;
+    }
+    else{
+        timelimit = 5;
+    }
+    
 
     vectorMap mapCoord = loadmap(mapName);
 
@@ -29,7 +37,7 @@ int main()
     createCommander(commander, state);
 
     commander.commanderSetup(mapCoord);
-    commander.giveOrders(testCommands, mapCoord);
+    commander.giveOrders(commands, mapCoord);
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
